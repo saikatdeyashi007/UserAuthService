@@ -4,6 +4,7 @@ import dev.saikat.userauthservice.dtos.LoginRequestDto;
 import dev.saikat.userauthservice.dtos.SignupRequestDto;
 import dev.saikat.userauthservice.dtos.UserDto;
 import dev.saikat.userauthservice.models.User;
+import dev.saikat.userauthservice.pojos.UserToken;
 import dev.saikat.userauthservice.services.AuthService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -21,8 +22,8 @@ public class AuthController {
     @PostMapping("/login")
     public UserDto login(@RequestBody LoginRequestDto loginRequestDto){
         try{
-            User user= authService.login(loginRequestDto.getEmail(), loginRequestDto.getPassword());
-            return convertToUserDto(user);
+            UserToken userToken = authService.login(loginRequestDto.getEmail(), loginRequestDto.getPassword());
+            return convertToUserDto(userToken.getUser());
         }
         catch (Exception exception){
             throw exception;
@@ -46,5 +47,6 @@ public class AuthController {
         userDto.setEmail(user.getEmail());
         return userDto;
     }
+
 
 }

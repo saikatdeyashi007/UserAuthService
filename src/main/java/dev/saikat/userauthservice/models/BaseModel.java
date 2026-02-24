@@ -18,9 +18,9 @@ public abstract class BaseModel {
     @GeneratedValue(strategy = GenerationType.IDENTITY) //For auto increment of the primary key(ID)
     private Long id;
 
-    private Date createdAt;
+    private String createdAt; //For formatted timestamp
 
-    private Date lastUpdatedAt;
+    private String lastUpdatedAt; //For formatted timestamp
 
     private State state;  //ACTIVE or INACTIVE as Deleted or not Deleted
 
