@@ -3,11 +3,13 @@ package dev.saikat.userauthservice.services;
 import dev.saikat.userauthservice.exceptions.PasswordMissmatchException;
 import dev.saikat.userauthservice.exceptions.UserAlreadySignedInException;
 import dev.saikat.userauthservice.exceptions.UserNotFoundException;
+import dev.saikat.userauthservice.models.Role;
 import dev.saikat.userauthservice.models.Session;
 import dev.saikat.userauthservice.models.State;
 import dev.saikat.userauthservice.models.User;
 import dev.saikat.userauthservice.pojos.CurrentTime;
 import dev.saikat.userauthservice.pojos.UserToken;
+import dev.saikat.userauthservice.repositories.RoleRepo;
 import dev.saikat.userauthservice.repositories.SessionRepo;
 import dev.saikat.userauthservice.repositories.UserRepo;
 import io.jsonwebtoken.Jwts;
@@ -17,15 +19,16 @@ import org.springframework.stereotype.Service;
 
 
 import javax.crypto.SecretKey;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Optional;
+import java.util.*;
 
 @Service
 public class AuthService {
 
     @Autowired
     private UserRepo userRepo;
+
+    @Autowired
+    private RoleRepo roleRepo;
 
     @Autowired
     private SessionRepo sessionRepo;
@@ -36,9 +39,11 @@ public class AuthService {
     @Autowired
     private SecretKey secretKey;
 
+    CurrentTime currentTime = new CurrentTime();
+
 
     //SIGNUP API Logic
-    public User signup(String name, String phone, String email, String password){
+    public User signup(String name, String phone, String email, String password, List<Role> rolesFromSignup){
         Optional<User> userOptional= userRepo.findByEmailEquals(email);
         if(userOptional.isPresent()){
             throw new UserAlreadySignedInException("User already signed in, Please login directly");
@@ -50,6 +55,30 @@ public class AuthService {
         user.setPassword(bCryptPasswordEncoder.encode(password));
         user.setName(name);
         user.setPhone(phone);
+        user.setCreatedAt(currentTime.getTimeByZone("Asia/Kolkata"));
+        user.setLastUpdatedAt(currentTime.getTimeByZone("Asia/Kolkata"));
+        user.setState(State.ACTIVE);
+
+        //Now to create the role for the user we need to verify the role name is valid for our database/business/project
+        //Lets create an empty list of Role exactly matching the type with User Model
+        List<Role> roleForCurrentUser = new LinkedList<>();
+
+        //Now for each role we are getting from sighup request we need to check if that present in our table or not
+        for (Role role : rolesFromSignup) {
+
+            //Get the data from Role table in an optional because the role might not exists also
+            Optional<Role> rolesFromDb = roleRepo.findByName(role.getName());
+
+            //If value is present in optional then we can add that into our blank list else throw exception
+            if (rolesFromDb.isPresent()) {
+                roleForCurrentUser.add(rolesFromDb.get());
+            }
+            else throw new RuntimeException("Role not found: " + role.getName());
+        }
+
+        //Save the list for current signup 08user
+        user.setRoles(roleForCurrentUser);
+
         userRepo.save(user);
         return user;
     }
@@ -86,7 +115,16 @@ public class AuthService {
             payload.put("userId", user.getId());
             payload.put("iss", "Scaler");
 
+            //Get list of String from List of Roles and then save it to Scope
+            List<String> roleNames = new ArrayList<>();
+            for (Role role : user.getRoles()) {
+                roleNames.add(role.getName());
+            }
+            payload.put("Scope", roleNames);
+            //Advance method to do the above operation: payload.put("Scope", user.getRoles().stream().map(Role::getName).toList());
 
+
+            //generate JWT
             String token = Jwts.builder().claims(payload).
                     signWith(secretKey).
                     compact();
@@ -99,7 +137,6 @@ public class AuthService {
             session.setToken(token);
             session.setUser(user);
             session.setState(State.ACTIVE);
-            CurrentTime currentTime = new CurrentTime();
             session.setCreatedAt(currentTime.getTimeByZone("Asia/Kolkata"));
 
 

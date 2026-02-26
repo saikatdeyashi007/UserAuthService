@@ -7,6 +7,11 @@ import dev.saikat.userauthservice.models.User;
 import dev.saikat.userauthservice.pojos.UserToken;
 import dev.saikat.userauthservice.services.AuthService;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
+import org.springframework.util.LinkedMultiValueMap;
+import org.springframework.util.MultiValueMap;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -19,34 +24,45 @@ public class AuthController {
     @Autowired
     private  AuthService authService;
 
+
     @PostMapping("/login")
-    public UserDto login(@RequestBody LoginRequestDto loginRequestDto){
+    public ResponseEntity<UserDto> login(@RequestBody LoginRequestDto loginRequestDto){
+
+        //We need to return the token in Header
+
+
         try{
             UserToken userToken = authService.login(loginRequestDto.getEmail(), loginRequestDto.getPassword());
-            return convertToUserDto(userToken.getUser());
+
+            MultiValueMap<String, String> headers = new LinkedMultiValueMap<>();
+            headers.add(HttpHeaders.COOKIE,userToken.getToken());
+            HttpHeaders httpHeaders = new HttpHeaders(headers);
+
+
+            return new ResponseEntity<>(UserDto.convertToUserDto(userToken.getUser()),
+                    httpHeaders,
+                    HttpStatus.OK);
+
+
         }
         catch (Exception exception){
-            throw exception;
+            System.out.println(exception.getMessage());
+            return new ResponseEntity<>(HttpStatus.INTERNAL_SERVER_ERROR);
         }
     }
 
     @PostMapping("/signup")
     public UserDto signup(@RequestBody SignupRequestDto signupRequestDto){
         try{
-            User user= authService.signup(signupRequestDto.getName(), signupRequestDto.getPhone(), signupRequestDto.getEmail(), signupRequestDto.getPassword());
-            return convertToUserDto(user);
+            User user= authService.signup(signupRequestDto.getName(),
+                    signupRequestDto.getPhone(),
+                    signupRequestDto.getEmail(),
+                    signupRequestDto.getPassword(),
+                    signupRequestDto.getRoles());
+            return UserDto.convertToUserDto(user);
         }
         catch (Exception exception){
             throw exception;
         }
     }
-
-    private UserDto convertToUserDto(User user){
-        UserDto userDto= new UserDto();
-        userDto.setId(user.getId());
-        userDto.setEmail(user.getEmail());
-        return userDto;
-    }
-
-
 }
